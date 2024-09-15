@@ -955,12 +955,9 @@ class HFPretrainedConfigVariable(VariableTracker):
         assert self.is_matching_cls(type(obj))
 
     def var_getattr(self, tx: "InstructionTranslator", name: str) -> "VariableTracker":
-        from .builder import VariableBuilder
-
         try:
             attr_value = getattr(self.obj, name)
-            attr_source = AttrSource(self.source, name)
-            return VariableBuilder(tx, attr_source)(attr_value)
+            return VariableTracker.create(tx, attr_value, AttrSource(self.source, name))
 
         except AttributeError:
             unimplemented(f"getattr({self.value}, {name})")
@@ -1024,15 +1021,11 @@ class PythonSysModulesVariable(VariableTracker):
         key: VariableTracker,
         default: Optional[VariableTracker] = None,
     ):
-        from .builder import VariableBuilder
-
         k, has_key = self._contains_helper(tx, key)
 
         if has_key:
-            return VariableBuilder(
-                tx,
-                GetItemSource(self.source, k),
-            )(sys.modules[k])
+            source = GetItemSource(self.source, k)
+            return VariableTracker.create(tx, sys.modules[k], source)
 
         if default is not None:
             return default
@@ -1040,10 +1033,5 @@ class PythonSysModulesVariable(VariableTracker):
         return ConstantVariable.create(value=None)
 
     def call_getitem(self, tx: "InstructionTranslator", key: VariableTracker):
-        from .builder import VariableBuilder
-
         k, has_key = self._contains_helper(tx, key)
-        return VariableBuilder(
-            tx,
-            GetItemSource(self.source, k),
-        )(sys.modules[k])
+        return VariableTracker.create(tx, sys.modules[k], GetItemSource(self.source, k))
